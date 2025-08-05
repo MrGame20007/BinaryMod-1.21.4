@@ -166,63 +166,50 @@ public class BinaryMod implements ModInitializer {
                                             int chunkZ = IntegerArgumentType.getInteger(ctx, "chunkZ");
                                             String filename = StringArgumentType.getString(ctx, "filename");
 
-                                            ServerWorld world = ctx.getSource().getWorld();
-                                            MinecraftServer server = ctx.getSource().getServer();
-                                            File gameDir = server.getRunDirectory(); // Gets the root .minecraft folder
-                                            File targetFile = new File(gameDir, filename);
-
+                                            File targetFile = new File(System.getProperty("user.dir"), filename);
                                             if (!targetFile.exists()) {
-                                                ctx.getSource().sendMessage(Text.literal("File not found: " + filename));
+                                                ctx.getSource().sendMessage(Text.literal("§cFile not found: " + filename));
                                                 return 0;
                                             }
 
-                                            String fileContents;
+                                            byte[] fileBytes;
                                             try {
-                                                fileContents = Files.readString(targetFile.toPath());
+                                                fileBytes = Files.readAllBytes(targetFile.toPath());
                                             } catch (IOException e) {
-                                                ctx.getSource().sendMessage(Text.literal("Error reading file: " + e.getMessage()));
+                                                ctx.getSource().sendMessage(Text.literal("§cFailed to read file: " + e.getMessage()));
                                                 return 0;
                                             }
 
-                                            // Begin placing blocks using existing logic
+                                            StringBuilder binary = new StringBuilder();
+                                            for (byte b : fileBytes) {
+                                                binary.append(String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0'));
+                                            }
+
+                                            ServerWorld world = ctx.getSource().getWorld();
                                             int baseX = chunkX << 4;
                                             int baseZ = chunkZ << 4;
-                                            int startY = -60;
-
-                                            // Clear existing data
-                                            for (int y = startY; y <= 319; y++) {
-                                                for (int x = 0; x < 16; x++) {
-                                                    for (int z = 0; z < 16; z++) {
-                                                        BlockPos pos = new BlockPos(baseX + x, y, baseZ + z);
-                                                        world.setBlockState(pos, Blocks.AIR.getDefaultState());
-                                                    }
-                                                }
-                                            }
-
-                                            // Convert to binary string
-                                            StringBuilder binary = new StringBuilder();
-                                            for (char c : fileContents.toCharArray()) {
-                                                binary.append(String.format("%8s", Integer.toBinaryString(c)).replace(' ', '0'));
-                                            }
 
                                             int bitIndex = 0;
-                                            int y = startY;
+                                            int y = -60;
 
                                             while (bitIndex < binary.length()) {
                                                 for (int z = 0; z < 16 && bitIndex < binary.length(); z++) {
                                                     for (int x = 0; x < 16 && bitIndex < binary.length(); x++) {
+                                                        int finalX = x, finalZ = z, finalY = y;
                                                         char bit = binary.charAt(bitIndex++);
-                                                        BlockPos pos = new BlockPos(baseX + x, y, baseZ + z);
-                                                        placementQueue.add(new BlockPlacement(world, pos, bit));
+                                                        BinaryMod.tickTaskQueue.add(() -> {
+                                                            BlockPos pos = new BlockPos(baseX + finalX, finalY, baseZ + finalZ);
+                                                            world.setBlockState(pos, bit == '0' ? Blocks.BLACK_WOOL.getDefaultState() : Blocks.WHITE_WOOL.getDefaultState());
+                                                        });
                                                     }
                                                 }
                                                 y++;
                                             }
 
-                                            ctx.getSource().sendMessage(Text.literal("Binary data from file is being placed..."));
+                                            ctx.getSource().sendMessage(Text.literal("§aBinary data from file placed successfully."));
                                             return 1;
-                                        }))));
-
+                                        }))))
+        );
     }
 
     // Helper class for scheduled placemen
