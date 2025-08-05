@@ -155,7 +155,7 @@ public class BinaryMod implements ModInitializer {
                                 }))));
     }
 
-    // Helper class for scheduled placement
+    // Helper class for scheduled placemen
     private static class BlockPlacement {
         private final ServerWorld world;
         private final BlockPos pos;
